@@ -13,6 +13,9 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import java.util.Arrays;
+import java.util.Comparator;
 
 /**
  *
@@ -20,11 +23,24 @@ import io.netty.handler.codec.http.HttpHeaderNames;
  */
 public class FullResponseLengthFixer extends ChannelHandlerAdapter {
 
+    private static final HttpResponseStatus[] SKIP_STATUS
+            = new HttpResponseStatus[]{
+                HttpResponseStatus.CONTINUE
+            };
+
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         if (msg instanceof FullHttpResponse) {
             FullHttpResponse resp = (FullHttpResponse) msg;
-            resp.headers().set(HttpHeaderNames.CONTENT_LENGTH, resp.content().writerIndex() + "");
+            if (Arrays.binarySearch(SKIP_STATUS, resp.status(),
+                    new Comparator<HttpResponseStatus>() {
+                @Override
+                public int compare(HttpResponseStatus o1, HttpResponseStatus o2) {
+                    return o1.equals(o2) ? 0 : -1;
+                }
+            }) < 0) {
+                resp.headers().set(HttpHeaderNames.CONTENT_LENGTH, resp.content().writerIndex() + "");
+            }
         }
         super.write(ctx, msg, promise);
     }
